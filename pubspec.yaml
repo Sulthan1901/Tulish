@@ -12,9 +12,7 @@ dependencies:
 
   cupertino_icons: ^1.0.2
 
-  sqflite_common_ffi: ^2.3.0+4
   sqflite: ^2.3.0
-  sqflite_common_ffi_web: ^0.4.0+4
   path_provider: ^2.1.2
   path: ^1.9.0
 
@@ -23,8 +21,6 @@ dependencies:
   shared_preferences: ^2.3.2
 
   flutter_tts: ^4.0.2
-
-  # FIX: gunakan versi stabil file_picker yang sudah mendukung Flutter v3 embedding
   file_picker: ^8.0.0
 
   csv: ^5.1.1
@@ -41,4 +37,4 @@ flutter:
 
   assets:
     - assets/images/
-    - assets/database/
+    - assets/database/words.csv

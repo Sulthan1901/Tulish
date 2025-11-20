@@ -1,7 +1,10 @@
 import 'dart:async';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:csv/csv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/word.dart';
 import '../models/history.dart';
 import '../models/bookmark.dart';
@@ -19,22 +22,14 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDB() async {
-    if (kIsWeb) {
-      databaseFactory = databaseFactoryFfiWeb;
-    } else {
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-    }
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final path = join(documentsDirectory.path, 'tulish.db');
 
-    final db = await databaseFactory.openDatabase(
-      'tulish.db',
-      options: OpenDatabaseOptions(
-        version: 1,
-        onCreate: _createDB,
-      ),
+    return await openDatabase(
+      path,
+      version: 1,
+      onCreate: _createDB,
     );
-
-    return db;
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -82,124 +77,63 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX IF NOT EXISTS idx_history_date ON history(searched_at DESC)');
     await db.execute('CREATE INDEX IF NOT EXISTS idx_bookmark_date ON bookmarks(added_at DESC)');
 
-    // Populate with sample data
-    await _populateSampleData(db);
+    // Load data from CSV
+    await _loadDataFromCSV(db);
   }
 
-  Future<void> _populateSampleData(Database db) async {
-    final sampleWords = [
-      {
-        'word': 'ephemeral',
-        'part_of_speech': 'Adjective',
-        'definition': 'Lasting for a very short time.',
-        'example': 'Fashions are ephemeral.\nThe mayfly has an ephemeral existence.\nEphemeral pleasures often leave a longing.',
-        'synonyms': 'Fleeting, Transient, Momentary',
-        'antonyms': 'Permanent, Enduring, Eternal',
-        'etymology': 'Ephemeral comes from the Greek word ephēmeros, literally meaning "lasting for a day." Its meaning has since expanded to describe anything that is fleeting or transient.'
-      },
-      {
-        'word': 'serendipity',
-        'part_of_speech': 'Noun',
-        'definition': 'The occurrence of events by chance in a happy or beneficial way.',
-        'example': 'A fortunate stroke of serendipity brought the two old friends together.',
-        'synonyms': 'Luck, Fortune, Chance',
-        'antonyms': 'Misfortune, Bad luck',
-        'etymology': 'Coined by Horace Walpole in 1754, inspired by the Persian fairy tale "The Three Princes of Serendip."'
-      },
-      {
-        'word': 'mellifluous',
-        'part_of_speech': 'Adjective',
-        'definition': 'Sweet or musical; pleasant to hear.',
-        'example': 'The voice was mellifluous and smooth.\nHer mellifluous tones captivated the audience.',
-        'synonyms': 'Sweet, Musical, Honeyed',
-        'antonyms': 'Harsh, Grating, Discordant',
-        'etymology': 'From Latin mellifluus, from mel (honey) + fluere (to flow).'
-      },
-      {
-        'word': 'luminous',
-        'part_of_speech': 'Adjective',
-        'definition': 'Emitting or reflecting light; bright or shining, especially in the dark.',
-        'example': 'The moon was luminous in the night sky.\nHer luminous smile lit up the room.',
-        'synonyms': 'Bright, Shining, Glowing',
-        'antonyms': 'Dark, Dim, Dull',
-        'etymology': 'From Latin luminosus, from lumen (light).'
-      },
-      {
-        'word': 'ubiquitous',
-        'part_of_speech': 'Adjective',
-        'definition': 'Present, appearing, or found everywhere.',
-        'example': 'Smartphones have become ubiquitous in modern society.\nCoffee shops are ubiquitous in this city.',
-        'synonyms': 'Omnipresent, Universal, Pervasive',
-        'antonyms': 'Rare, Scarce, Limited',
-        'etymology': 'From Latin ubique, meaning "everywhere."'
-      },
-      {
-        'word': 'nefarious',
-        'part_of_speech': 'Adjective',
-        'definition': 'Wicked or criminal; extremely bad.',
-        'example': 'He was a nefarious criminal mastermind.\nTheir nefarious plot was eventually discovered.',
-        'synonyms': 'Wicked, Evil, Sinful',
-        'antonyms': 'Good, Virtuous, Moral',
-        'etymology': 'From Latin nefarius, from nefas (crime, sin), from ne- (not) + fas (divine law).'
-      },
-      {
-        'word': 'quixotic',
-        'part_of_speech': 'Adjective',
-        'definition': 'Extremely idealistic; unrealistic and impractical.',
-        'example': 'His quixotic attempt to change the world single-handedly failed.\nShe had quixotic dreams of becoming a famous artist.',
-        'synonyms': 'Idealistic, Impractical, Unrealistic',
-        'antonyms': 'Realistic, Practical, Pragmatic',
-        'etymology': 'Named after Don Quixote, the hero of Cervantes novel who was known for his impractical idealism.'
-      },
-      {
-        'word': 'halcyon',
-        'part_of_speech': 'Adjective',
-        'definition': 'Denoting a period of time in the past that was idyllically happy and peaceful.',
-        'example': 'The halcyon days of youth.\nThose were halcyon times, before the war.',
-        'synonyms': 'Peaceful, Happy, Golden',
-        'antonyms': 'Turbulent, Troubled, Chaotic',
-        'etymology': 'From Greek halkyon, a mythical bird said to calm the sea during winter solstice.'
-      },
-      {
-        'word': 'verdant',
-        'part_of_speech': 'Adjective',
-        'definition': 'Green with grass or other rich vegetation.',
-        'example': 'The verdant hills of Ireland.\nA verdant landscape stretched before them.',
-        'synonyms': 'Green, Lush, Grassy',
-        'antonyms': 'Barren, Arid, Dry',
-        'etymology': 'From Old French verdoyant, from Latin viridis (green).'
-      },
-      {
-        'word': 'cacophony',
-        'part_of_speech': 'Noun',
-        'definition': 'A harsh discordant mixture of sounds.',
-        'example': 'A cacophony of car horns filled the street.\nThe cacophony of the construction site was deafening.',
-        'synonyms': 'Discord, Dissonance, Noise',
-        'antonyms': 'Harmony, Melody, Euphony',
-        'etymology': 'From Greek kakophonia, from kakos (bad) + phone (sound).'
-      },
-      {
-        'word': 'resilient',
-        'part_of_speech': 'Adjective',
-        'definition': 'Able to withstand or recover quickly from difficult conditions.',
-        'example': 'Children are generally very resilient.\nThe company proved resilient during the recession.',
-        'synonyms': 'Strong, Tough, Hardy',
-        'antonyms': 'Fragile, Weak, Vulnerable',
-        'etymology': 'From Latin resilire (to spring back), from re- (back) + salire (to jump).'
-      },
-      {
-        'word': 'zenith',
-        'part_of_speech': 'Noun',
-        'definition': 'The highest point reached by a celestial or other object; the peak.',
-        'example': 'The sun reached its zenith at noon.\nHe was at the zenith of his career.',
-        'synonyms': 'Peak, Summit, Apex',
-        'antonyms': 'Nadir, Bottom, Lowest point',
-        'etymology': 'From Arabic samt (ar-ras), meaning "path (over the head)."'
-      }
-    ];
+  Future<void> _loadDataFromCSV(Database db) async {
+    try {
+      // Check if data already loaded using SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final isDataLoaded = prefs.getBool('words_loaded') ?? false;
 
-    for (var word in sampleWords) {
-      await db.insert('words', word, conflictAlgorithm: ConflictAlgorithm.ignore);
+      if (isDataLoaded) {
+        print('Database already populated, skipping CSV import');
+        return;
+      }
+
+      // Read CSV file from assets
+      final csvData = await rootBundle.loadString('assets/database/words.csv');
+      
+      // Parse CSV
+      List<List<dynamic>> rows = const CsvToListConverter().convert(csvData);
+
+      // Skip header row
+      for (int i = 1; i < rows.length; i++) {
+        final row = rows[i];
+        
+        if (row.length < 7) continue; // Skip incomplete rows
+
+        final wordMap = {
+          'word': (row[0] ?? '').toString().trim(),
+          'part_of_speech': (row[1] ?? '').toString().trim(),
+          'definition': (row[2] ?? '').toString().trim(),
+          'example': (row[3] ?? '').toString().trim(),
+          'synonyms': (row[4] ?? '').toString().trim(),
+          'antonyms': (row[5] ?? '').toString().trim(),
+          'etymology': (row[6] ?? '').toString().trim(),
+        };
+
+        // Skip if word is empty
+        if (wordMap['word']!.isEmpty) continue;
+
+        try {
+          await db.insert(
+            'words',
+            wordMap,
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        } catch (e) {
+          print('Error inserting word: ${wordMap['word']} - $e');
+        }
+      }
+
+      // Mark data as loaded
+      await prefs.setBool('words_loaded', true);
+      print('CSV data successfully imported to database');
+    } catch (e) {
+      print('Error loading CSV data: $e');
+      rethrow;
     }
   }
 
@@ -247,6 +181,12 @@ class DatabaseHelper {
       [limit],
     );
     return results.map((map) => Word.fromMap(map)).toList();
+  }
+
+  Future<int> getTotalWordCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM words');
+    return Sqflite.firstIntValue(result) ?? 0;
   }
 
   // History operations
