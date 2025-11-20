@@ -1,0 +1,44 @@
+name: tulish
+description: Offline English Dictionary App
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.2
+
+  sqflite_common_ffi: ^2.3.0+4
+  sqflite: ^2.3.0
+  sqflite_common_ffi_web: ^0.4.0+4
+  path_provider: ^2.1.2
+  path: ^1.9.0
+
+  flutter_bloc: ^8.1.4
+  equatable: ^2.0.5
+  shared_preferences: ^2.3.2
+
+  flutter_tts: ^4.0.2
+
+  # FIX: gunakan versi stabil file_picker yang sudah mendukung Flutter v3 embedding
+  file_picker: ^8.0.0
+
+  csv: ^5.1.1
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.2
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/database/
