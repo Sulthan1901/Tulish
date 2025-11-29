@@ -87,51 +87,103 @@ class WordBloc extends Bloc<WordEvent, WordState> {
   }
 
   Future<void> _onSearchWords(SearchWordsEvent event, Emitter<WordState> emit) async {
+    print('🔍 SearchWordsEvent triggered: "${event.query}"');
+    
     if (event.query.isEmpty) {
+      print('⚠️ Query is empty, emitting WordInitial');
       emit(WordInitial());
       return;
     }
 
     emit(WordLoading());
+    print('⏳ Loading...');
+    
     try {
+      print('🔎 Searching database for: "${event.query}"');
       final words = await dbHelper.searchWords(event.query);
+      print('✅ Search complete! Found ${words.length} results');
+      
+      if (words.isEmpty) {
+        print('⚠️ No words found for query: "${event.query}"');
+      } else {
+        print('📚 Results:');
+        for (var word in words) {
+          print('   - ${word.word}');
+        }
+      }
+      
       emit(WordSearchResults(words, event.query));
     } catch (e) {
+      print('❌ Search error: $e');
+      print('Stack trace: ${StackTrace.current}');
       emit(WordError('Failed to search words: ${e.toString()}'));
     }
   }
 
   Future<void> _onLoadWordDetails(LoadWordDetailsEvent event, Emitter<WordState> emit) async {
+    print('📖 LoadWordDetailsEvent triggered for ID: ${event.wordId}');
     emit(WordLoading());
+    
     try {
       final word = await dbHelper.getWordById(event.wordId);
+      
       if (word != null) {
+        print('✅ Word found: ${word.word}');
+        
         // Add to history
         await dbHelper.addHistory(History(
           wordId: word.id,
           wordText: word.word,
           searchedAt: DateTime.now(),
         ));
+        print('📝 Added to history');
+        
         emit(WordDetailsLoaded(word));
       } else {
+        print('❌ Word not found for ID: ${event.wordId}');
         emit(WordError('Word not found'));
       }
     } catch (e) {
+      print('❌ Error loading word details: $e');
       emit(WordError('Failed to load word details: ${e.toString()}'));
     }
   }
 
   Future<void> _onLoadRandomWords(LoadRandomWordsEvent event, Emitter<WordState> emit) async {
+    print('🎲 LoadRandomWordsEvent triggered');
     emit(WordLoading());
+    
     try {
+      // First, check total words in database
+      final totalCount = await dbHelper.getTotalWordCount();
+      print('📊 Total words in database: $totalCount');
+      
+      if (totalCount == 0) {
+        print('⚠️ Database is empty! No words to load');
+        emit(RandomWordsLoaded([]));
+        return;
+      }
+      
       final words = await dbHelper.getRandomWords(5);
+      print('🎲 Loaded ${words.length} random words');
+      
+      if (words.isNotEmpty) {
+        print('📚 Random words:');
+        for (var word in words) {
+          print('   - ${word.word}');
+        }
+      }
+      
       emit(RandomWordsLoaded(words));
     } catch (e) {
+      print('❌ Error loading random words: $e');
+      print('Stack trace: ${StackTrace.current}');
       emit(WordError('Failed to load random words: ${e.toString()}'));
     }
   }
 
   Future<void> _onClearSearch(ClearSearchEvent event, Emitter<WordState> emit) async {
+    print('🗑️ ClearSearchEvent triggered');
     emit(WordInitial());
   }
 }

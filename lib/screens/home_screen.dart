@@ -219,22 +219,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildSection(String title, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.headlineMedium,
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        title,
+        style: title == "Recent Searches"
+            ? const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+              )
+            : Theme.of(context).textTheme.headlineMedium,
+      ),
+      const SizedBox(height: 8),
+      Card(
+        child: Column(
+          children: children,
         ),
-        const SizedBox(height: 8),
-        Card(
-          child: Column(
-            children: children,
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
+}
+
 
   String _formatTime(DateTime time) {
     final now = DateTime.now();

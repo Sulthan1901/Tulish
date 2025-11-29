@@ -1,15 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import 'data/database_helper.dart';
 import 'blocs/word_bloc.dart';
 import 'blocs/bookmark_bloc.dart';
 import 'blocs/history_bloc.dart';
 import 'blocs/theme_bloc.dart';
-import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/favorites_screen.dart';
 import 'screens/settings_screen.dart';
+
+// TTS
+import 'blocs/tts_bloc.dart';
+import 'services/tts_services.dart';
 
 void main() {
   runApp(const TulishApp());
@@ -24,6 +28,9 @@ class TulishApp extends StatelessWidget {
       providers: [
         RepositoryProvider(
           create: (context) => DatabaseHelper.instance,
+        ),
+        RepositoryProvider(
+          create: (context) => TtsService(),
         ),
       ],
       child: MultiBlocProvider(
@@ -40,26 +47,29 @@ class TulishApp extends StatelessWidget {
           BlocProvider(
             create: (context) => ThemeBloc()..add(LoadThemeEvent()),
           ),
+          BlocProvider(
+            create: (context) => TtsBloc(context.read<TtsService>()),
+          ),
         ],
         child: BlocBuilder<ThemeBloc, ThemeState>(
           builder: (context, state) {
-            ThemeMode themeMode = ThemeMode.dark;
-            
-            if (state is ThemeLoaded) {
-              if (state.themeMode == 'light') {
-                themeMode = ThemeMode.light;
-              } else if (state.themeMode == 'dark') {
-                themeMode = ThemeMode.dark;
-              } else {
-                themeMode = ThemeMode.system;
-              }
+            if (state is! ThemeLoaded) {
+              return const SizedBox();
             }
+
+            final themeData = state.themeData;
+
+            final themeMode = state.themeMode == 'light'
+                ? ThemeMode.light
+                : state.themeMode == 'dark'
+                    ? ThemeMode.dark
+                    : ThemeMode.system;
 
             return MaterialApp(
               title: 'Tulish',
               debugShowCheckedModeBanner: false,
-              theme: AppTheme.lightTheme,
-              darkTheme: AppTheme.darkTheme,
+              theme: themeData,
+              darkTheme: themeData,
               themeMode: themeMode,
               initialRoute: '/',
               routes: {

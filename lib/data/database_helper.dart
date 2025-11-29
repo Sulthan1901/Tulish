@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/services.dart';
 import 'package:csv/csv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/word.dart';
 import '../models/history.dart';
 import '../models/bookmark.dart';
@@ -29,25 +30,33 @@ class DatabaseHelper {
       path,
       version: 1,
       onCreate: _createDB,
+      onOpen: (db) async {
+        final countResult =
+            await db.rawQuery("SELECT COUNT(*) as count FROM words");
+        final count = Sqflite.firstIntValue(countResult) ?? 0;
+
+        if (count == 0) {
+          print("⚠️ DB exists but empty — forcing CSV reload");
+
+          // 🔥 FIX PALING PENTING
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('words_loaded', false);
+
+          await _loadDataFromCSV(db);
+        }
+      },
     );
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // Create words table
     await db.execute('''
       CREATE TABLE IF NOT EXISTS words (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         word TEXT NOT NULL UNIQUE,
-        part_of_speech TEXT,
-        definition TEXT NOT NULL,
-        example TEXT,
-        synonyms TEXT,
-        antonyms TEXT,
-        etymology TEXT
+        definition TEXT NOT NULL
       )
     ''');
 
-    // Create history table
     await db.execute('''
       CREATE TABLE IF NOT EXISTS history (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +67,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // Create bookmarks table
     await db.execute('''
       CREATE TABLE IF NOT EXISTS bookmarks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,49 +80,41 @@ class DatabaseHelper {
       )
     ''');
 
-    // Create indexes
     await db.execute('CREATE INDEX IF NOT EXISTS idx_word ON words(word)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_history_date ON history(searched_at DESC)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_bookmark_date ON bookmarks(added_at DESC)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_history ON history(searched_at DESC)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_bookmark ON bookmarks(added_at DESC)');
 
-    // Load data from CSV
     await _loadDataFromCSV(db);
   }
 
   Future<void> _loadDataFromCSV(Database db) async {
     try {
-      // Check if data already loaded using SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       final isDataLoaded = prefs.getBool('words_loaded') ?? false;
 
       if (isDataLoaded) {
-        print('Database already populated, skipping CSV import');
+        print('⚠️ words_loaded flag = true → skipping CSV import');
         return;
       }
 
-      // Read CSV file from assets
-      final csvData = await rootBundle.loadString('assets/database/words.csv');
-      
-      // Parse CSV
-      List<List<dynamic>> rows = const CsvToListConverter().convert(csvData);
+      print("📂 Loading CSV from assets...");
+      final csvData =
+          await rootBundle.loadString('assets/database/words.csv');
 
-      // Skip header row
+      final rows = const CsvToListConverter().convert(csvData);
+
+      int inserted = 0;
+
       for (int i = 1; i < rows.length; i++) {
         final row = rows[i];
-        
-        if (row.length < 7) continue; // Skip incomplete rows
+
+        if (row.length < 2) continue;
 
         final wordMap = {
           'word': (row[0] ?? '').toString().trim(),
-          'part_of_speech': (row[1] ?? '').toString().trim(),
-          'definition': (row[2] ?? '').toString().trim(),
-          'example': (row[3] ?? '').toString().trim(),
-          'synonyms': (row[4] ?? '').toString().trim(),
-          'antonyms': (row[5] ?? '').toString().trim(),
-          'etymology': (row[6] ?? '').toString().trim(),
+          'definition': (row[1] ?? '').toString().trim(),
         };
 
-        // Skip if word is empty
         if (wordMap['word']!.isEmpty) continue;
 
         try {
@@ -123,21 +123,24 @@ class DatabaseHelper {
             wordMap,
             conflictAlgorithm: ConflictAlgorithm.ignore,
           );
+          inserted++;
         } catch (e) {
-          print('Error inserting word: ${wordMap['word']} - $e');
+          print('❌ Error inserting ${wordMap['word']}: $e');
         }
       }
 
-      // Mark data as loaded
+      print("✅ CSV import finished. Inserted: $inserted words");
+
       await prefs.setBool('words_loaded', true);
-      print('CSV data successfully imported to database');
+      print("🔖 words_loaded flag saved");
+
     } catch (e) {
-      print('Error loading CSV data: $e');
+      print('❌ Error loading CSV data: $e');
       rethrow;
     }
   }
 
-  // Word operations
+
   Future<List<Word>> searchWords(String query) async {
     final db = await database;
     final results = await db.query(
@@ -189,7 +192,8 @@ class DatabaseHelper {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
-  // History operations
+ 
+
   Future<int> addHistory(History history) async {
     final db = await database;
     return await db.insert('history', history.toMap());
@@ -210,7 +214,7 @@ class DatabaseHelper {
     await db.delete('history');
   }
 
-  // Bookmark operations
+
   Future<int> addBookmark(Bookmark bookmark) async {
     final db = await database;
     return await db.insert(

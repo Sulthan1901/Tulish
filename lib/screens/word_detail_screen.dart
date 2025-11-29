@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../blocs/word_bloc.dart';
 import '../blocs/bookmark_bloc.dart';
+import '../blocs/tts_bloc.dart';
 import '../models/word.dart';
 
 class WordDetailScreen extends StatefulWidget {
@@ -24,7 +26,8 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
   }
 
   Future<void> _checkBookmark() async {
-    final isBookmarked = await context.read<BookmarkBloc>().dbHelper.isBookmarked(widget.wordId);
+    final isBookmarked =
+        await context.read<BookmarkBloc>().dbHelper.isBookmarked(widget.wordId);
     setState(() {
       _isBookmarked = isBookmarked;
     });
@@ -78,9 +81,13 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                     ),
                     onPressed: () {
                       if (_isBookmarked) {
-                        context.read<BookmarkBloc>().add(RemoveBookmarkEvent(word.id!));
+                        context
+                            .read<BookmarkBloc>()
+                            .add(RemoveBookmarkEvent(word.id!));
                       } else {
-                        context.read<BookmarkBloc>().add(AddBookmarkEvent(word));
+                        context
+                            .read<BookmarkBloc>()
+                            .add(AddBookmarkEvent(word));
                       }
                       setState(() {
                         _isBookmarked = !_isBookmarked;
@@ -95,7 +102,9 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
               ),
             ],
           ),
+
           const SizedBox(height: 8),
+
           if (word.partOfSpeech != null) ...[
             Text(
               word.partOfSpeech!,
@@ -103,6 +112,8 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
             ),
             const SizedBox(height: 8),
           ],
+
+          // ======= TTS HERE =======
           Row(
             children: [
               Text(
@@ -113,15 +124,28 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
-                icon: const Icon(Icons.volume_up),
-                onPressed: () {
-                  // TTS functionality would go here
+              BlocBuilder<TtsBloc, TtsState>(
+                builder: (context, ttsState) {
+                  return IconButton(
+                    icon: Icon(
+                      Icons.volume_up,
+                      color: ttsState is TtsSpeaking
+                          ? Colors.pinkAccent
+                          : null,
+                    ),
+                    onPressed: () {
+                      context
+                          .read<TtsBloc>()
+                          .add(SpeakTextEvent(word.word));
+                    },
+                  );
                 },
               ),
             ],
           ),
+
           const SizedBox(height: 24),
+
           Text(
             'Definition',
             style: Theme.of(context).textTheme.titleLarge,
@@ -131,6 +155,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
             word.definition,
             style: Theme.of(context).textTheme.bodyLarge,
           ),
+
           if (word.example != null) ...[
             const SizedBox(height: 24),
             Text(
@@ -138,15 +163,19 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
-            ...word.example!.split('\n').map((example) => Padding(
-              padding: const EdgeInsets.only(bottom: 8.0),
-              child: Text(
-                example.trim(),
-                style: Theme.of(context).textTheme.bodyMedium,
+            ...word.example!.split('\n').map(
+              (example) => Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text(
+                  example.trim(),
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
-            )),
+            ),
           ],
-          if (word.synonymsList.isNotEmpty || word.antonymsList.isNotEmpty) ...[
+
+          if (word.synonymsList.isNotEmpty ||
+              word.antonymsList.isNotEmpty) ...[
             const SizedBox(height: 24),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,18 +193,25 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: word.synonymsList.map((syn) => Chip(
-                            label: Text(
-                              syn,
-                              style: const TextStyle(color: Color(0xFFFFB3D9)),
-                            ),
-                            backgroundColor: const Color(0xFF2A2A2A),
-                          )).toList(),
+                          children: word.synonymsList
+                              .map(
+                                (syn) => Chip(
+                                  label: Text(
+                                    syn,
+                                    style: const TextStyle(
+                                        color: Color(0xFFFFB3D9)),
+                                  ),
+                                  backgroundColor:
+                                      const Color(0xFF2A2A2A),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ],
                     ),
                   ),
-                if (word.synonymsList.isNotEmpty && word.antonymsList.isNotEmpty)
+                if (word.synonymsList.isNotEmpty &&
+                    word.antonymsList.isNotEmpty)
                   const SizedBox(width: 16),
                 if (word.antonymsList.isNotEmpty)
                   Expanded(
@@ -190,13 +226,19 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
-                          children: word.antonymsList.map((ant) => Chip(
-                            label: Text(
-                              ant,
-                              style: const TextStyle(color: Color(0xFFFFB3D9)),
-                            ),
-                            backgroundColor: const Color(0xFF2A2A2A),
-                          )).toList(),
+                          children: word.antonymsList
+                              .map(
+                                (ant) => Chip(
+                                  label: Text(
+                                    ant,
+                                    style: const TextStyle(
+                                        color: Color(0xFFFFB3D9)),
+                                  ),
+                                  backgroundColor:
+                                      const Color(0xFF2A2A2A),
+                                ),
+                              )
+                              .toList(),
                         ),
                       ],
                     ),
@@ -204,6 +246,7 @@ class _WordDetailScreenState extends State<WordDetailScreen> {
               ],
             ),
           ],
+
           if (word.etymology != null) ...[
             const SizedBox(height: 24),
             Text(

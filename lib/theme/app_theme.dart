@@ -11,6 +11,8 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
+      fontFamily: "PlusJakartaSans",
+
       scaffoldBackgroundColor: darkBackground,
       colorScheme: const ColorScheme.dark(
         primary: primaryPink,
@@ -73,6 +75,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: "PlusJakartaSans",
       scaffoldBackgroundColor: lightBackground,
       colorScheme: const ColorScheme.light(
         primary: primaryPink,
