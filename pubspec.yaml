@@ -37,6 +37,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/tulishh.png
     - assets/database/words.csv
   
   fonts:

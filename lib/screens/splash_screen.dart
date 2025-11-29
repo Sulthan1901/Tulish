@@ -8,21 +8,80 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  
   late AnimationController _controller;
-  late Animation<double> _animation;
+
+  late Animation<double> _logoFade;
+  late Animation<double> _textFade;
+  late Animation<Offset> _textSlide;
+  late Animation<double> _subFade;
+  late Animation<Offset> _subSlide;
 
   @override
   void initState() {
     super.initState();
+
     _controller = AnimationController(
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 3000),
       vsync: this,
     );
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-    _controller.forward();
 
+    // LOGO FADE
+    _logoFade = Tween<double>(begin: 0, end: 1).animate(
+  CurvedAnimation(
+    parent: _controller,
+    curve: const Interval(
+      0.0,
+      1.0,
+      curve: Curves.easeInOutCubic, // lebih smooth dari easeInOut biasa
+    ),
+  ),
+);
+
+
+
+    // TEXT FADE + SLIDE
+    _textFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.35, 0.9, curve: Curves.easeOut),
+    );
+
+    _textSlide = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.35, 0.9, curve: Curves.easeOut),
+      ),
+    );
+
+    // SUBTITLE FADE + SLIDE
+    _subFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.55, 1.0, curve: Curves.easeOut),
+    );
+
+    _subSlide = Tween<Offset>(
+      begin: const Offset(0, 0.45),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.55, 1.0, curve: Curves.easeOut),
+      ),
+    );
+
+    // Jalankan animasi setelah frame pertama
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _controller.forward();
+    });
+
+    // Pindah ke home
     Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/home');
     });
   }
@@ -38,98 +97,57 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A1A),
       body: Center(
-        child: ScaleTransition(
-          scale: _animation,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CustomPaint(
-                size: const Size(120, 120),
-                painter: SunburstPainter(),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            
+            /// LOGO FADE
+            FadeTransition(
+              opacity: _logoFade,
+              child: Image.asset(
+                'assets/images/tulishh.png',
+                width: 120,
+                height: 120,
               ),
-              const SizedBox(height: 32),
-              const Text(
-                'Tulish.',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
+            ),
+
+            const SizedBox(height: 32),
+
+            /// MAIN TEXT — FADE + SLIDE UP
+            SlideTransition(
+              position: _textSlide,
+              child: FadeTransition(
+                opacity: _textFade,
+                child: const Text(
+                  'Tulish.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 36,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'Every Word, a Step Forward.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
+            ),
+
+            const SizedBox(height: 8),
+
+            /// SUBTITLE — FADE + SLIDE
+            SlideTransition(
+              position: _subSlide,
+              child: FadeTransition(
+                opacity: _subFade,
+                child: const Text(
+                  'Every Word, a Step Forward.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                  ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
-  }
-}
-
-class SunburstPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFFFB3D9)
-      ..style = PaintingStyle.fill;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 3;
-
-    // Draw center circle
-    canvas.drawCircle(center, radius, paint);
-
-    // Draw sunburst rays
-    const rayCount = 24;
-    for (var i = 0; i < rayCount; i++) {
-      final angle = (i * 360 / rayCount) * (3.14159 / 180);
-      final startX = center.dx + (radius * 1.1) * cos(angle);
-      final startY = center.dy + (radius * 1.1) * sin(angle);
-      final endX = center.dx + (radius * 1.8) * cos(angle);
-      final endY = center.dy + (radius * 1.8) * sin(angle);
-
-      final path = Path();
-      path.moveTo(startX, startY);
-      path.lineTo(endX, endY);
-      
-      final rayPaint = Paint()
-        ..color = const Color(0xFFFFB3D9)
-        ..strokeWidth = i.isEven ? 8 : 4
-        ..strokeCap = StrokeCap.round;
-      
-      canvas.drawPath(path, rayPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
-}
-
-double cos(double radians) => radians.cos();
-double sin(double radians) => radians.sin();
-
-extension on double {
-  double cos() {
-    return (this * 180 / 3.14159).cosRadians();
-  }
-  
-  double sin() {
-    return (this * 180 / 3.14159).sinRadians();
-  }
-  
-  double cosRadians() {
-    final x = this;
-    return 1 - (x * x) / 2 + (x * x * x * x) / 24 - (x * x * x * x * x * x) / 720;
-  }
-  
-  double sinRadians() {
-    final x = this;
-    return x - (x * x * x) / 6 + (x * x * x * x * x) / 120 - (x * x * x * x * x * x * x) / 5040;
   }
 }

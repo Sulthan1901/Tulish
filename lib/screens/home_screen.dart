@@ -35,9 +35,10 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CustomPaint(
-              size: const Size(32, 32),
-              painter: MiniSunburstPainter(),
+            Image.asset(
+              'assets/images/tulishh.png',   // ganti sesuai file Bos
+              width: 32,
+              height: 32,
             ),
             const SizedBox(width: 8),
             const Text('Tulish.'),
