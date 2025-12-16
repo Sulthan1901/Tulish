@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -38,7 +39,6 @@ class DatabaseHelper {
         if (count == 0) {
           print("⚠️ DB exists but empty — forcing CSV reload");
 
-          // 🔥 FIX PALING PENTING
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('words_loaded', false);
 
@@ -81,12 +81,17 @@ class DatabaseHelper {
     ''');
 
     await db.execute('CREATE INDEX IF NOT EXISTS idx_word ON words(word)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_history ON history(searched_at DESC)');
-    await db.execute('CREATE INDEX IF NOT EXISTS idx_bookmark ON bookmarks(added_at DESC)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_history ON history(searched_at DESC)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_bookmark ON bookmarks(added_at DESC)');
 
     await _loadDataFromCSV(db);
   }
 
+  // ============================
+  // 🔥 CSV LOADER (SMOOTH)
+  // ============================
   Future<void> _loadDataFromCSV(Database db) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -101,46 +106,33 @@ class DatabaseHelper {
       final csvData =
           await rootBundle.loadString('assets/database/words.csv');
 
-      final rows = const CsvToListConverter().convert(csvData);
+      // 🔥 PARSE CSV DI BACKGROUND ISOLATE
+      final parsedData = await compute(parseCsvInBackground, csvData);
 
-      int inserted = 0;
+      print("📥 Inserting ${parsedData.length} words into database...");
 
-      for (int i = 1; i < rows.length; i++) {
-        final row = rows[i];
-
-        if (row.length < 2) continue;
-
-        final wordMap = {
-          'word': (row[0] ?? '').toString().trim(),
-          'definition': (row[1] ?? '').toString().trim(),
-        };
-
-        if (wordMap['word']!.isEmpty) continue;
-
-        try {
-          await db.insert(
-            'words',
-            wordMap,
-            conflictAlgorithm: ConflictAlgorithm.ignore,
-          );
-          inserted++;
-        } catch (e) {
-          print('❌ Error inserting ${wordMap['word']}: $e');
-        }
+      final batch = db.batch();
+      for (final wordMap in parsedData) {
+        batch.insert(
+          'words',
+          wordMap,
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
       }
 
-      print("✅ CSV import finished. Inserted: $inserted words");
+      await batch.commit(noResult: true);
 
       await prefs.setBool('words_loaded', true);
-      print("🔖 words_loaded flag saved");
-
+      print("✅ CSV import finished & flag saved");
     } catch (e) {
       print('❌ Error loading CSV data: $e');
       rethrow;
     }
   }
 
-
+  // ============================
+  // WORDS
+  // ============================
   Future<List<Word>> searchWords(String query) async {
     final db = await database;
     final results = await db.query(
@@ -155,34 +147,24 @@ class DatabaseHelper {
 
   Future<Word?> getWordById(int id) async {
     final db = await database;
-    final results = await db.query(
-      'words',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
+    final results =
+        await db.query('words', where: 'id = ?', whereArgs: [id], limit: 1);
     if (results.isEmpty) return null;
     return Word.fromMap(results.first);
   }
 
   Future<Word?> getWordByText(String word) async {
     final db = await database;
-    final results = await db.query(
-      'words',
-      where: 'word = ?',
-      whereArgs: [word],
-      limit: 1,
-    );
+    final results =
+        await db.query('words', where: 'word = ?', whereArgs: [word], limit: 1);
     if (results.isEmpty) return null;
     return Word.fromMap(results.first);
   }
 
   Future<List<Word>> getRandomWords(int limit) async {
     final db = await database;
-    final results = await db.rawQuery(
-      'SELECT * FROM words ORDER BY RANDOM() LIMIT ?',
-      [limit],
-    );
+    final results =
+        await db.rawQuery('SELECT * FROM words ORDER BY RANDOM() LIMIT ?', [limit]);
     return results.map((map) => Word.fromMap(map)).toList();
   }
 
@@ -192,8 +174,9 @@ class DatabaseHelper {
     return Sqflite.firstIntValue(result) ?? 0;
   }
 
- 
-
+  // ============================
+  // HISTORY
+  // ============================
   Future<int> addHistory(History history) async {
     final db = await database;
     return await db.insert('history', history.toMap());
@@ -214,7 +197,9 @@ class DatabaseHelper {
     await db.delete('history');
   }
 
-
+  // ============================
+  // BOOKMARK
+  // ============================
   Future<int> addBookmark(Bookmark bookmark) async {
     final db = await database;
     return await db.insert(
@@ -226,11 +211,7 @@ class DatabaseHelper {
 
   Future<void> removeBookmark(int wordId) async {
     final db = await database;
-    await db.delete(
-      'bookmarks',
-      where: 'word_id = ?',
-      whereArgs: [wordId],
-    );
+    await db.delete('bookmarks', where: 'word_id = ?', whereArgs: [wordId]);
   }
 
   Future<bool> isBookmarked(int wordId) async {
@@ -246,10 +227,8 @@ class DatabaseHelper {
 
   Future<List<Bookmark>> getBookmarks() async {
     final db = await database;
-    final results = await db.query(
-      'bookmarks',
-      orderBy: 'added_at DESC',
-    );
+    final results =
+        await db.query('bookmarks', orderBy: 'added_at DESC');
     return results.map((map) => Bookmark.fromMap(map)).toList();
   }
 
@@ -268,4 +247,29 @@ class DatabaseHelper {
     final db = await database;
     await db.close();
   }
+}
+
+// ======================================
+// 🔥 BACKGROUND CSV PARSER (WAJIB DI LUAR CLASS)
+// ======================================
+List<Map<String, String>> parseCsvInBackground(String csvData) {
+  final rows = const CsvToListConverter().convert(csvData);
+  final List<Map<String, String>> result = [];
+
+  for (int i = 1; i < rows.length; i++) {
+    final row = rows[i];
+    if (row.length < 2) continue;
+
+    final word = (row[0] ?? '').toString().trim();
+    final definition = (row[1] ?? '').toString().trim();
+
+    if (word.isEmpty) continue;
+
+    result.add({
+      'word': word,
+      'definition': definition,
+    });
+  }
+
+  return result;
 }
