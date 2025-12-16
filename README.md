@@ -2,7 +2,7 @@
 
 Tulish adalah **aplikasi kamus Bahasa Inggris berbasis Android yang bekerja 100% offline**, dikembangkan menggunakan **Flutter** dan **SQLite**. Aplikasi ini dirancang untuk membantu pelajar dan mahasiswa dalam mempelajari kosakata Bahasa Inggris secara cepat, ringan, dan tanpa ketergantungan koneksi internet.
 
-Repositori ini dibuat sebagai bagian dari proyek akademik mata kuliah **Rekayasa Perangkat Lunak / Pengembangan Aplikasi Mobile**.
+Repositori ini dibuat sebagai bagian dari proyek akademik mata kuliah **Pengembangan Aplikasi Mobile**.
 
 ---
 
